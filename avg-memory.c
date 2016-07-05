@@ -1,5 +1,5 @@
 /*
-########################################################
+#######################################################################
 #   Calculo Numerico - Trabalho Spline
 #       --v0.1
 #
@@ -7,11 +7,12 @@
 #   Rubia Marques Oliveira -
 #
 #
-########################################################
+#######################################################################
 */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 struct par {
     float x;
@@ -34,6 +35,9 @@ float* CalculaDerivadaSpline(int n, float *x, float *y);
 float AvaliaSpline(int n, float *x, float *y, float *s2, float valor);
 Pares LoadFile(char *file);
 void DeletePares(Pares aux);
+void PrintExit(int n, double avg, char *saida);
+void SaveRFile(Pares p, double avg, char *saida);
+float Random(float xmin, float xmax);
 
 int main(int args, char** argv) {
     Pares p;
@@ -54,13 +58,18 @@ Pares LoadFile(char *file) {
     int i;
     n = 0;
     char aux;
+
+
+    /* Contador de Linhas */
     while (EOF != (scanf("%*[^\n]") && scanf("%*c")))
         n++;
+
     aux->vet = (struct par*)malloc(sizeof(struct par)*(n+1));
     for(i = 0; i < n; i++) {
         fscanf(arq,"%d%d\n", aux->vet[i].x, aux->vet[i].y);
     }
 
+    /* Setando valores de X min e max, e Y min e max */
     aux->xmin = aux->vet[0].x;
     aux->xmax = 0;
     aux->ymin = aux->vet[0].y;
@@ -88,9 +97,26 @@ Pares LoadFile(char *file) {
     return(aux);
 }
 
+void PrintExit(int n, double avg, char *saida) {
+    n++
+    printf("Number of Samples\t: %d\n", n);
+    printf("Average Memory Usage\t: %.3f\n", avg);
+    printf("\n");
+    printf("Run 'Rscript %s.r' to generate Average Memory Usage Chart", saida);
+    return;
+}
+
 void DeletePares(Pares aux) {
     free(aux->vet);
     free(aux);
+    return;
+}
+
+float Random(float xmin, float xmax) {
+    float random;
+    srand(time(NULL));
+    random = xmin + rand() % (xmax - xmin);
+    return(random);
 }
 
 float* CalculaDerivadaSpline(int n, float *x, float *y) {
@@ -152,18 +178,19 @@ float AvaliaSpline(int n, float *x, float *y, float *s2, float valor) {
             if(x[indice] > valor) {
                 sup = indice;
             } else {
-                inf - indice;
+                inf = indice;
             }
         }
 
     //Avalia P(x) por Horner
         float h, a, b, c, d;
+        double resultado;
         h = x[sup] - x[inf];
         a = (s2[sup] - s2[inf]) / 6 * h;
         b = s2[inf] * 0.5;
         c = (y[sup] - y[inf]) / h - (s2[sup] + 2 * s2[inf]) * h / 6;
         d = y[inf];
         h = valor - x[inf];
-        valor = ((a * h + b) * h + c) * h + d;
-    return(valor);
+        resultado = ((a * h + b) * h + c) * h + d;
+    return(resultado);
 }
