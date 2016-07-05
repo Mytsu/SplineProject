@@ -38,17 +38,17 @@ void DeletePares(Pares aux);
 void PrintExit(int n, double avg, char *saida);
 void SaveRFile(Pares p, double avg, char *saida);
 float Random(float xmin, float xmax);
+void RscriptGenerate(Pares p, double avg, char *saida, float *s2);
 
 int main(int args, char** argv) {
     Pares p;
-    p = NULL;
     p = LoadFile(argv[1]);
-    int i;
 
     DeletePares(p);
     return(0);
 }
 
+/* Função que carrega o arquivo e preenche a estrutura com os valores informados */
 Pares LoadFile(char *file) {
     Pares aux;
     aux = (Pares)malloc(sizeof(struct est));
@@ -59,9 +59,8 @@ Pares LoadFile(char *file) {
     n = 0;
     char aux;
 
-
     /* Contador de Linhas */
-    while (EOF != (scanf("%*[^\n]") && scanf("%*c")))
+    while (EOF != (fscanf(arq, "%*[^\n]") && fscanf(arq, "%*c")))
         n++;
 
     aux->vet = (struct par*)malloc(sizeof(struct par)*(n+1));
@@ -97,6 +96,7 @@ Pares LoadFile(char *file) {
     return(aux);
 }
 
+/* Funcao que mostra o resultado de saida do terminal para o usuario */
 void PrintExit(int n, double avg, char *saida) {
     n++
     printf("Number of Samples\t: %d\n", n);
@@ -106,12 +106,14 @@ void PrintExit(int n, double avg, char *saida) {
     return;
 }
 
+/* Funcao propria para limpar a estrutura */
 void DeletePares(Pares aux) {
     free(aux->vet);
     free(aux);
     return;
 }
 
+/* Funcao U(xmin,xmax) */
 float Random(float xmin, float xmax) {
     float random;
     srand(time(NULL));
@@ -119,6 +121,59 @@ float Random(float xmin, float xmax) {
     return(random);
 }
 
+void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
+    FILE *arq;
+    int i;
+
+    arq = fopen(saida,"w");
+    fprintf(arq, "#\n");
+    fprintf(arq, "# Generated automatically by 'avg-memory' application");
+    fprintf(arq, "#\n");
+    fprintf(arq, "\n");
+    fprintf(arq, "# Original points (x coordinates)\n");
+    fprintf(arq, "xorig <- c(\n");
+    for(i = 0; i < p->n; i++) {
+        fprintf(arq, "\t%.0f,\n", p->vet[i].x);
+    }
+    fprintf(arq, "\t%.0f\n", p->vet[p->n+1].x);
+    fprintf(arq, ");\n");
+    fprintf(arq, "\n");
+    fprintf(arq, "# Original points (y coordinates)\n");
+    fprintf(arq, "yorig <- c (\n");
+    for(i = 0; i < p->n; i++) {
+        fprintf(arq, "\t%.0f,\n", p->vet[i].y);
+    }
+    fprintf(arq, "\t%.0f\n", p->vet[p->n+1].y);
+    fprintf(arq, ");\n");
+    fprintf(arq, "\n");
+    fprintf(arq, "# Spline points (x coordinates, sampling interval = 0.01)");
+    fprintf(arq, "xspl <- c(\n");
+    float intervalo;
+    float xinc;
+    intervalo = 0.01;
+    xinc = p->xmin;
+    while(xinc < p->xmax) {
+        fprintf(arq, "\t%.2f,", xinc);
+        xinc = xinc + intervalo;
+    }
+    fprintf(arq, "\t%.2f", xinc);
+    fprintf(arq, ");\n");
+    fprintf(arq, "\n");
+    fprintf(arq, "# Spline points (y coordinates, sampling interval = 0.01)");
+    xinc = p->xmin;
+    while(xinc < p->xmax) {
+        fprintf(arq, "\t%.5f,", AvaliaSpline(p->n,p->vet, xinc));
+        xinc = xinc + intervalo;
+    }
+    fprintf(arq, "\t%.5f", AvaliaSpline(p->n,p->vet, xinc));
+    fprintf(arq, ");\n");
+    fprintf(arq, "\n");
+
+
+    fclose(arq);
+}
+
+/* Funcao Derivada por Spline Cubica informada no enunciado */
 float* CalculaDerivadaSpline(int n, float *x, float *y) {
     int m;
     float Ha, Hb;
@@ -131,7 +186,7 @@ float* CalculaDerivadaSpline(int n, float *x, float *y) {
         printf("ERRO: NAO E POSSIVEL DEFINIR SPLINE COM MENOS DE 3 PONTOS!\n");
     }
 
-    //Sistema Tridiagonal Simetrico
+    /* Sistema Tridiagonal Simetrico */
         m = n - 2;
         Ha = x[2] - x[1];
         DeltaA = (y[2] - y[1]) / Ha;
@@ -145,7 +200,7 @@ float* CalculaDerivadaSpline(int n, float *x, float *y) {
             DeltaA = DeltaB;
         }
 
-    //Eliminacao de Gauss
+    /* Eliminacao de Gauss */
         float t;
         for(i = 2; i <= m; i++) {
             t = e[i-1] / d[i-1];
@@ -153,7 +208,7 @@ float* CalculaDerivadaSpline(int n, float *x, float *y) {
             s2[i+1] = s2[i+1] - t * s2[i];
         }
 
-    //Substituicao Retroativa
+    /* Substituicao Retroativa */
         s2[m+1] = s2[m+1] / d[m];
         for(i = m; i >= 2; i--) {
             s2[i] = (s2[i] - e[i-1] * s2[i+1]) / d[i-1];
@@ -165,32 +220,33 @@ float* CalculaDerivadaSpline(int n, float *x, float *y) {
         return(s2);
 }
 
-float AvaliaSpline(int n, float *x, float *y, float *s2, float valor) {
+/* Funcao Avalia Spline Cubica ou f(x) informada no enunciado */
+float AvaliaSpline(int n, struct par *vet, float *s2, float valor) {
     if(valor < x[0] || valor > x[n]) {
         printf("ERRO: VALOR FORA DO INTERVALO!\n");
     }
 
-    //Busca Binaria
+    /* Busca Binaria */
         int inf = 1;
-        int sup = n;
+        int sup = p->n;
         while(sup - inf < -1) {
             indice = (inf + sup) / 2;
-            if(x[indice] > valor) {
+            if(vet[indice].x > valor) {
                 sup = indice;
             } else {
                 inf = indice;
             }
         }
 
-    //Avalia P(x) por Horner
+    /* Avalia P(x) por Horner */
         float h, a, b, c, d;
         double resultado;
-        h = x[sup] - x[inf];
+        h = vet[sup].x - vet[inf].x;
         a = (s2[sup] - s2[inf]) / 6 * h;
         b = s2[inf] * 0.5;
-        c = (y[sup] - y[inf]) / h - (s2[sup] + 2 * s2[inf]) * h / 6;
-        d = y[inf];
-        h = valor - x[inf];
+        c = (vet[sup].y - vet[inf].y) / h - (s2[sup] + 2 * s2[inf]) * h / 6;
+        d = vet[inf].y;
+        h = valor - vet[inf].x;
         resultado = ((a * h + b) * h + c) * h + d;
     return(resultado);
 }
