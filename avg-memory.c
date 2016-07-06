@@ -4,7 +4,7 @@
 #       --v0.1
 #
 #   Jonathan Arantes Pinto - 0021625
-#   Rubia Marques Oliveira -
+#   Rubia Marques Oliveira - 0022430
 #
 #
 #######################################################################
@@ -17,7 +17,7 @@
 struct par {
     float x;
     float y;
-}
+};
 
 struct est{
     int n;
@@ -31,20 +31,29 @@ struct est{
 typedef struct est *Pares;
 
 
-float* CalculaDerivadaSpline(int n, float *x, float *y);
-float AvaliaSpline(int n, float *x, float *y, float *s2, float valor);
+float* CalculaDerivadaSpline(Pares p);
+float AvaliaSpline(Pares p, float *s2, float valor);
 Pares LoadFile(char *file);
 void DeletePares(Pares aux);
 void PrintExit(int n, double avg, char *saida);
-void SaveRFile(Pares p, double avg, char *saida);
 float Random(float xmin, float xmax);
 void RscriptGenerate(Pares p, double avg, char *saida, float *s2);
+double IntegralMonteCarlo(Pares p, float *s2);
 
 int main(int args, char** argv) {
     Pares p;
-    p = LoadFile(argv[1]);
-
-    DeletePares(p);
+    float *s2;
+    double avg;
+    p = NULL; /* começa aterrado */
+    p = (Pares)malloc(sizeof(struct est)); /* aloca ponteiro p */
+    printf("Digite quantos pontos terá na Spline:\n ");
+    /* LoadFile já preenche os campos N, xmin, xmax, ymin, ymax */
+    p = LoadFile(argv[1]); /* recebe a função para carregar o arquivo */
+    s2 = CalculaDerivadaSpline(p);
+    avg = IntegralMonteCarlo(p, s2);
+    RscriptGenerate(p, avg, argv[2], s2);
+    PrintExit(p->n, avg, argv[2]);
+    DeletePares(p); /* função para deletar o ponteiro */
     return(0);
 }
 
@@ -57,7 +66,6 @@ Pares LoadFile(char *file) {
     int n;
     int i;
     n = 0;
-    char aux;
 
     /* Contador de Linhas */
     while (EOF != (fscanf(arq, "%*[^\n]") && fscanf(arq, "%*c")))
@@ -65,7 +73,7 @@ Pares LoadFile(char *file) {
 
     aux->vet = (struct par*)malloc(sizeof(struct par)*(n+1));
     for(i = 0; i < n; i++) {
-        fscanf(arq,"%d%d\n", aux->vet[i].x, aux->vet[i].y);
+        fscanf(arq,"%f%f\n", &aux->vet[i].x, &aux->vet[i].y);
     }
 
     /* Setando valores de X min e max, e Y min e max */
@@ -98,7 +106,7 @@ Pares LoadFile(char *file) {
 
 /* Funcao que mostra o resultado de saida do terminal para o usuario */
 void PrintExit(int n, double avg, char *saida) {
-    n++
+    n++;
     printf("Number of Samples\t: %d\n", n);
     printf("Average Memory Usage\t: %.3f\n", avg);
     printf("\n");
@@ -117,7 +125,7 @@ void DeletePares(Pares aux) {
 float Random(float xmin, float xmax) {
     float random;
     srand(time(NULL));
-    random = xmin + rand() % (xmax - xmin);
+    random = (unsigned long int)xmin + rand() % ((unsigned long int)xmax - (unsigned long int)xmin);
     return(random);
 }
 
@@ -162,10 +170,10 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
     fprintf(arq, "# Spline points (y coordinates, sampling interval = 0.01)");
     xinc = p->xmin;
     while(xinc < p->xmax) {
-        fprintf(arq, "\t%.5f,", AvaliaSpline(p->n,p->vet, xinc));
+        fprintf(arq, "\t%.5f,", AvaliaSpline(p, s2, xinc));
         xinc = xinc + intervalo;
     }
-    fprintf(arq, "\t%.5f", AvaliaSpline(p->n,p->vet, xinc));
+    fprintf(arq, "\t%.5f", AvaliaSpline(p, s2, xinc));
     fprintf(arq, ");\n");
     fprintf(arq, "\n");
 
@@ -174,25 +182,26 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
 }
 
 /* Funcao Derivada por Spline Cubica informada no enunciado */
-float* CalculaDerivadaSpline(int n, float *x, float *y) {
+float* CalculaDerivadaSpline(Pares p) {
     int m;
     float Ha, Hb;
     float DeltaA, DeltaB;
     float *e, *d, *s2;
-    e = (float*)malloc(sizeof(float)*n);
-    d = (float*)malloc(sizeof(float)*n);
-    s2 = (float*)malloc(sizeof(float)*n);
-    if(n < 3) {
+    int i;
+    e = (float*)malloc(sizeof(float)*p->n);
+    d = (float*)malloc(sizeof(float)*p->n);
+    s2 = (float*)malloc(sizeof(float)*p->n);
+    if(p->n < 3) {
         printf("ERRO: NAO E POSSIVEL DEFINIR SPLINE COM MENOS DE 3 PONTOS!\n");
     }
 
     /* Sistema Tridiagonal Simetrico */
-        m = n - 2;
-        Ha = x[2] - x[1];
-        DeltaA = (y[2] - y[1]) / Ha;
+        m = p->n - 2;
+        Ha = p->vet[2].x - p->vet[1].x;
+        DeltaA = (p->vet[2].y - p->vet[1].y) / Ha;
         for(i = 1; i <= m; i++) {
-            Hb = x[i+2] - x[i+1];
-            DeltaB = (y[i+2] - y[i+1]) / Hb;
+            Hb = p->vet[i+2].x - p->vet[i+1].x;
+            DeltaB = (p->vet[i+2].y - p->vet[i+1].y) / Hb;
             e[i] = Hb;
             d[i] = 2 * (Ha + Hb);
             s2[i+1] = 6 * (DeltaB - DeltaA);
@@ -221,8 +230,9 @@ float* CalculaDerivadaSpline(int n, float *x, float *y) {
 }
 
 /* Funcao Avalia Spline Cubica ou f(x) informada no enunciado */
-float AvaliaSpline(int n, struct par *vet, float *s2, float valor) {
-    if(valor < x[0] || valor > x[n]) {
+float AvaliaSpline(Pares p, float *s2, float valor) {
+    int indice;
+    if(valor < p->vet[0].x || valor > p->vet[p->n].x) {
         printf("ERRO: VALOR FORA DO INTERVALO!\n");
     }
 
@@ -231,7 +241,7 @@ float AvaliaSpline(int n, struct par *vet, float *s2, float valor) {
         int sup = p->n;
         while(sup - inf < -1) {
             indice = (inf + sup) / 2;
-            if(vet[indice].x > valor) {
+            if(p->vet[indice].x > valor) {
                 sup = indice;
             } else {
                 inf = indice;
@@ -241,12 +251,31 @@ float AvaliaSpline(int n, struct par *vet, float *s2, float valor) {
     /* Avalia P(x) por Horner */
         float h, a, b, c, d;
         double resultado;
-        h = vet[sup].x - vet[inf].x;
+        h = p->vet[sup].x - p->vet[inf].x;
         a = (s2[sup] - s2[inf]) / 6 * h;
         b = s2[inf] * 0.5;
-        c = (vet[sup].y - vet[inf].y) / h - (s2[sup] + 2 * s2[inf]) * h / 6;
-        d = vet[inf].y;
-        h = valor - vet[inf].x;
+        c = (p->vet[sup].y - p->vet[inf].y) / h - (s2[sup] + 2 * s2[inf]) * h / 6;
+        d = p->vet[inf].y;
+        h = valor - p->vet[inf].x;
         resultado = ((a * h + b) * h + c) * h + d;
     return(resultado);
+}
+
+/* Integração por Monte Carlo */
+
+double IntegralMonteCarlo(Pares p, float *s2) {
+    float num_abaixo , x, y;
+    double AreaTotal, Area;
+    int i;
+    num_abaixo = 0.0;
+     for (i=1; i<=p->n; i++){ /* laço de 1 até o número menor ou igual a n */
+        x = Random(p->xmin,p->xmax);  /* usando a função para gerar números pseudoaleatórios */
+        y = Random(p->ymin,p->ymax);
+         if (y <= AvaliaSpline(p, s2, x)){
+            num_abaixo++; /* contador */
+         }
+     }
+     AreaTotal = (p->xmax - p->xmin) * (p->ymax - p->ymin); /* cálculo da área total */
+     Area = AreaTotal * (num_abaixo / p->n); /* cálculo da área */
+    return (Area);
 }
