@@ -44,16 +44,12 @@ int main(int args, char** argv) {
     Pares p;
     float *s2;
     double avg;
-    p = NULL; /* começa aterrado */
-    p = (Pares)malloc(sizeof(struct est)); /* aloca ponteiro p */
-    printf("Digite quantos pontos terá na Spline:\n ");
-    /* LoadFile já preenche os campos N, xmin, xmax, ymin, ymax */
-    p = LoadFile(argv[1]); /* recebe a função para carregar o arquivo */
+    p = LoadFile(argv[1]);
     s2 = CalculaDerivadaSpline(p);
     avg = IntegralMonteCarlo(p, s2);
     RscriptGenerate(p, avg, argv[2], s2);
     PrintExit(p->n, avg, argv[2]);
-    DeletePares(p); /* função para deletar o ponteiro */
+    DeletePares(p);
     return(0);
 }
 
@@ -66,14 +62,20 @@ Pares LoadFile(char *file) {
     int n;
     int i;
     n = 0;
+    char c;
 
     /* Contador de Linhas */
-    while (EOF != (fscanf(arq, "%*[^\n]") && fscanf(arq, "%*c")))
+    while (fscanf(arq,"%*f %*f\n") != EOF) {
         n++;
+        printf("%d\n",n);
+    }
+    fclose(arq);
+    arq = fopen(file,"r");
 
     aux->vet = (struct par*)malloc(sizeof(struct par)*(n+1));
     for(i = 0; i < n; i++) {
-        fscanf(arq,"%f%f\n", &aux->vet[i].x, &aux->vet[i].y);
+        fscanf(arq,"%f %f\n", &aux->vet[i].x, &aux->vet[i].y);
+        printf("%.2f, %.2f\n", aux->vet[i].x, aux->vet[i].y);
     }
 
     /* Setando valores de X min e max, e Y min e max */
@@ -110,7 +112,7 @@ void PrintExit(int n, double avg, char *saida) {
     printf("Number of Samples\t: %d\n", n);
     printf("Average Memory Usage\t: %.3f\n", avg);
     printf("\n");
-    printf("Run 'Rscript %s.r' to generate Average Memory Usage Chart", saida);
+    printf("Run 'Rscript %s.r' to generate Average Memory Usage Chart\n", saida);
     return;
 }
 
@@ -125,7 +127,7 @@ void DeletePares(Pares aux) {
 float Random(float xmin, float xmax) {
     float random;
     srand(time(NULL));
-    random = (unsigned long int)xmin + rand() % ((unsigned long int)xmax - (unsigned long int)xmin);
+    random = ((float) rand() / RAND_MAX) * (xmax-xmin) + xmin;
     return(random);
 }
 
@@ -193,6 +195,7 @@ float* CalculaDerivadaSpline(Pares p) {
     s2 = (float*)malloc(sizeof(float)*p->n);
     if(p->n < 3) {
         printf("ERRO: NAO E POSSIVEL DEFINIR SPLINE COM MENOS DE 3 PONTOS!\n");
+        exit(0);        
     }
 
     /* Sistema Tridiagonal Simetrico */
@@ -239,7 +242,7 @@ float AvaliaSpline(Pares p, float *s2, float valor) {
     /* Busca Binaria */
         int inf = 1;
         int sup = p->n;
-        while(sup - inf < -1) {
+        while(sup - inf > 1) {
             indice = (inf + sup) / 2;
             if(p->vet[indice].x > valor) {
                 sup = indice;
