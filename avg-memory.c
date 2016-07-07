@@ -108,7 +108,7 @@ void PrintExit(int n, double avg, char *saida) {
     printf("Number of Samples\t: %d\n", n);
     printf("Average Memory Usage\t: %.3f\n", avg);
     printf("\n");
-    printf("Run 'Rscript %s.r' to generate Average Memory Usage Chart\n", saida);
+    printf("Run 'Rscript %s' to generate Average Memory Usage Chart\n", saida);
     return;
 }
 
@@ -122,7 +122,7 @@ void DeletePares(Pares aux) {
 /* Funcao U(xmin,xmax) */
 float Random(float xmin, float xmax) {
     float random;
-    srand(time(NULL));
+    srand((unsigned)time(NULL));
     random = ((rand())/(float)RAND_MAX)*(xmax-xmin)+xmin;
     return(random);
 }
@@ -152,29 +152,39 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
     fprintf(arq, "\t%.0f\n", p->vet[p->n+1].y);
     fprintf(arq, ");\n");
     fprintf(arq, "\n");
-    fprintf(arq, "# Spline points (x coordinates, sampling interval = 0.01)");
+    fprintf(arq, "# Spline points (x coordinates, sampling interval = 0.01)\n");
     fprintf(arq, "xspl <- c(\n");
     float intervalo;
     float xinc;
     intervalo = 0.01;
     xinc = p->xmin;
     while(xinc < p->xmax) {
-        fprintf(arq, "\t%.2f,", xinc);
+        fprintf(arq, "\t%.2f,\n", xinc);
         xinc = xinc + intervalo;
     }
-    fprintf(arq, "\t%.2f", xinc);
+    fprintf(arq, "\t%.2f\n", xinc);
     fprintf(arq, ");\n");
     fprintf(arq, "\n");
-    fprintf(arq, "# Spline points (y coordinates, sampling interval = 0.01)");
+    fprintf(arq, "# Spline points (y coordinates, sampling interval = 0.01)\n");
+    fprintf(arq, "yspl <- c(\n");
     xinc = p->xmin;
     while(xinc < p->xmax) {
-        fprintf(arq, "\t%.5f,", AvaliaSpline(p, s2, xinc));
+        fprintf(arq, "\t%.5f,\n", AvaliaSpline(p, s2, xinc));
         xinc = xinc + intervalo;
     }
-    fprintf(arq, "\t%.5f", AvaliaSpline(p, s2, xinc));
+    fprintf(arq, "\t%.5f\n", AvaliaSpline(p, s2, xinc));
     fprintf(arq, ");\n");
     fprintf(arq, "\n");
-
+    fprintf(arq, "# Average Memory Usage\n");
+    fprintf(arq, "AvgMemory <- %.3f\n", avg);
+    fprintf(arq, "\n");
+    fprintf(arq, "# Plot the values in .png file\n");
+    fprintf(arq, "png(file='%s.png', width=1200);\n", saida);
+    fprintf(arq, "title <- paste('AVG Memory Usage: %.3f Kb (%d Samples)');\n", avg, p->n);
+    fprintf(arq, "plot(xspl, yspl, type='l', col='blue', main=title, xlab='Samples', ylab='Mem. Usage', lwd=3);\n");
+    fprintf(arq, "points(xorig, yorig, pch=19, col='red');\n");
+    fprintf(arq, "lines( c(min(xorig), max(xorig)), c(AvgMemory, AvgMemory), col='black', lty=2, lwd=3);\n");
+    fprintf(arq, "dev.off();");
 
     fclose(arq);
 }
@@ -196,12 +206,12 @@ float* CalculaDerivadaSpline(Pares p) {
     }
 
     /* Sistema Tridiagonal Simetrico */
-        m = p->n - 2;
-        Ha = p->vet[2].x - p->vet[1].x;
-        DeltaA = (p->vet[2].y - p->vet[1].y) / Ha;
-        for(i = 1; i <= m; i++) {
-            Hb = p->vet[i+2].x - p->vet[i+1].x;
-            DeltaB = (p->vet[i+2].y - p->vet[i+1].y) / Hb;
+        m = p->n - 1;
+        Ha = p->vet[1].x - p->vet[0].x;
+        DeltaA = (p->vet[1].y - p->vet[0].y) / Ha;
+        for(i = 0; i <= m; i++) {
+            Hb = p->vet[i+1].x - p->vet[i].x;
+            DeltaB = (p->vet[i+1].y - p->vet[i].y) / Hb;
             e[i] = Hb;
             d[i] = 2 * (Ha + Hb);
             s2[i+1] = 6 * (DeltaB - DeltaA);
@@ -211,19 +221,19 @@ float* CalculaDerivadaSpline(Pares p) {
 
     /* Eliminacao de Gauss */
         float t;
-        for(i = 2; i <= m; i++) {
+        for(i = 1; i <= m; i++) {
             t = e[i-1] / d[i-1];
             d[i] = d[i] - t * e[i -1];
             s2[i+1] = s2[i+1] - t * s2[i];
         }
 
     /* Substituicao Retroativa */
-        s2[m+1] = s2[m+1] / d[m];
-        for(i = m; i >= 2; i--) {
+        s2[m] = s2[m+1] / d[m];
+        for(i = m; i >= 1; i--) {
             s2[i] = (s2[i] - e[i-1] * s2[i+1]) / d[i-1];
         }
         s2[1] = 0;
-        s2[m+2] = 0;
+        s2[m+1] = 0;
         free(e);
         free(d);
         return(s2);
@@ -235,8 +245,6 @@ float AvaliaSpline(Pares p, float *s2, float valor) {
     if((valor < p->xmin ) || (valor > p->xmax)) {
         printf("Valor Aleatorio: %.2f\n", valor);
         printf("ERRO: VALOR FORA DO INTERVALO!\n");
-        DeletePares(p);
-        exit(0);
     }
 
     /* Busca Binaria */
@@ -271,7 +279,7 @@ double IntegralMonteCarlo(Pares p, float *s2) {
     double AreaTotal, Area;
     int i;
     num_abaixo = 0.0;
-     for (i=1; i<=p->n; i++){ /* laço de 1 até o número menor ou igual a n */
+     for (i = 1; i <= p->n; i++){ /* laço de 1 até o número menor ou igual a n */
         x = Random(p->xmin,p->xmax);  /* usando a função para gerar números pseudoaleatórios */
         y = Random(p->ymin,p->ymax);
          if (y <= AvaliaSpline(p, s2, x)){
