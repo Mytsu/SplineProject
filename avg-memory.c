@@ -62,23 +62,24 @@ Pares LoadFile(char *file) {
     int n;
     int i;
     n = 0;
-    char c;
 
     /* Contador de Linhas */
     while (fscanf(arq,"%*f %*f\n") != EOF) {
         n++;
-        printf("%d\n",n);
     }
     fclose(arq);
     arq = fopen(file,"r");
 
-    aux->vet = (struct par*)malloc(sizeof(struct par)*(n+1));
+    aux->vet = (struct par*)malloc(sizeof(struct par)*(n));
     for(i = 0; i < n; i++) {
         fscanf(arq,"%f %f\n", &aux->vet[i].x, &aux->vet[i].y);
-        printf("%.2f, %.2f\n", aux->vet[i].x, aux->vet[i].y);
     }
 
     /* Setando valores de X min e max, e Y min e max */
+    printf("Valores no vetor x:\n");
+    for(i = 0; i < n; i++) {
+        printf("\t%d\t%.2f\n", i, aux->vet[i].x);
+    }
     aux->xmin = aux->vet[0].x;
     aux->xmax = 0;
     aux->ymin = aux->vet[0].y;
@@ -101,6 +102,8 @@ Pares LoadFile(char *file) {
     }
 
     aux->n = n;
+    printf("xmin: %.2f \nxmax: %.2f \nymin: %.2f \nymax: %.2f\n", aux->xmin, aux->xmax, aux->ymin, aux->ymax);
+    printf("Quantidade de Linhas: %d\n",n);
 
     fclose(arq);
     return(aux);
@@ -127,7 +130,7 @@ void DeletePares(Pares aux) {
 float Random(float xmin, float xmax) {
     float random;
     srand(time(NULL));
-    random = ((float) rand() / RAND_MAX) * (xmax-xmin) + xmin;
+    random = ((rand())/(float)RAND_MAX)*(xmax-xmin)+xmin;
     return(random);
 }
 
@@ -195,7 +198,8 @@ float* CalculaDerivadaSpline(Pares p) {
     s2 = (float*)malloc(sizeof(float)*p->n);
     if(p->n < 3) {
         printf("ERRO: NAO E POSSIVEL DEFINIR SPLINE COM MENOS DE 3 PONTOS!\n");
-        exit(0);        
+        DeletePares(p);
+        exit(0);
     }
 
     /* Sistema Tridiagonal Simetrico */
@@ -235,8 +239,14 @@ float* CalculaDerivadaSpline(Pares p) {
 /* Funcao Avalia Spline Cubica ou f(x) informada no enunciado */
 float AvaliaSpline(Pares p, float *s2, float valor) {
     int indice;
-    if(valor < p->vet[0].x || valor > p->vet[p->n].x) {
+    if((valor < p->vet[0].x ) || (valor > p->vet[p->n].x)) {
+
+        printf("Valor 0 de x: %.2f\n", p->xmin);
+        printf("Valor N de x: %.2f\n", p->xmax);
+        printf("Valor Aleatorio: %.2f\n", valor);
         printf("ERRO: VALOR FORA DO INTERVALO!\n");
+        DeletePares(p);
+        exit(0);
     }
 
     /* Busca Binaria */
