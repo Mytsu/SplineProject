@@ -104,7 +104,6 @@ Pares LoadFile(char *file) {
 
 /* Funcao que mostra o resultado de saida do terminal para o usuario */
 void PrintExit(int n, double avg, char *saida) {
-    n++;
     printf("Number of Samples\t: %d\n", n);
     printf("Average Memory Usage\t: %.3f\n", avg);
     printf("\n");
