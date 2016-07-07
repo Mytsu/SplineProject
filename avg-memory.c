@@ -76,10 +76,6 @@ Pares LoadFile(char *file) {
     }
 
     /* Setando valores de X min e max, e Y min e max */
-    printf("Valores no vetor x:\n");
-    for(i = 0; i < n; i++) {
-        printf("\t%d\t%.2f\n", i, aux->vet[i].x);
-    }
     aux->xmin = aux->vet[0].x;
     aux->xmax = 0;
     aux->ymin = aux->vet[0].y;
@@ -102,9 +98,6 @@ Pares LoadFile(char *file) {
     }
 
     aux->n = n;
-    printf("xmin: %.2f \nxmax: %.2f \nymin: %.2f \nymax: %.2f\n", aux->xmin, aux->xmax, aux->ymin, aux->ymax);
-    printf("Quantidade de Linhas: %d\n",n);
-
     fclose(arq);
     return(aux);
 }
@@ -239,10 +232,7 @@ float* CalculaDerivadaSpline(Pares p) {
 /* Funcao Avalia Spline Cubica ou f(x) informada no enunciado */
 float AvaliaSpline(Pares p, float *s2, float valor) {
     int indice;
-    if((valor < p->vet[0].x ) || (valor > p->vet[p->n].x)) {
-
-        printf("Valor 0 de x: %.2f\n", p->xmin);
-        printf("Valor N de x: %.2f\n", p->xmax);
+    if((valor < p->xmin ) || (valor > p->xmax)) {
         printf("Valor Aleatorio: %.2f\n", valor);
         printf("ERRO: VALOR FORA DO INTERVALO!\n");
         DeletePares(p);
