@@ -147,9 +147,9 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
   float xinc;
   intervalo = 0.01;
   xinc = p->xmin;
-  while(xinc <= p->xmax) {
-    fprintf(arq, "\t%.2f,\n", xinc);
-    xinc = xinc + intervalo;
+  while(xinc < (p->n-1)) {
+      fprintf(arq, "\t%.2f,\n", xinc);
+      xinc = xinc + intervalo;
   }
   fprintf(arq, "\t%.2f\n", xinc);
   fprintf(arq, ");\n");
@@ -157,9 +157,9 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
   fprintf(arq, "# Spline points (y coordinates, sampling interval = 0.01)\n");
   fprintf(arq, "yspl <- c(\n");
   xinc = p->xmin;
-  while(xinc <= p->xmax) {
-    fprintf(arq, "\t%.5f,\n", AvaliaSpline(p, s2, xinc));
-    xinc = xinc + intervalo;
+  while(xinc < (p->n-1)) {
+      fprintf(arq, "\t%.2f,\n", AvaliaSpline(p, s2, xinc));
+      xinc += intervalo;
   }
   fprintf(arq, "\t%.2f\n", AvaliaSpline(p, s2, xinc));
   fprintf(arq, ");\n");
