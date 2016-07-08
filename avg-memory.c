@@ -31,24 +31,27 @@ struct est{
   float* CalculaDerivadaSpline(Pares p);
   float AvaliaSpline(Pares p, float *s2, float valor);
   Pares LoadFile(char *file);
-  void DeletePares(Pares aux);
+  void CleanSys(Pares aux, float *s2);
   void PrintExit(int n, double avg, char *saida);
   float Random(float xmin, float xmax);
   void RscriptGenerate(Pares p, double avg, char *saida, float *s2);
   double IntegralMonteCarlo(Pares p, float *s2);
+  double AvgMem(Pares p, float* s2, double integral);
 
 
 int main(int args, char** argv) {
   Pares p;
   float *s2;
   double avg;
+  double integral;
   srand((unsigned)time(NULL));
   p = LoadFile(argv[1]);
   s2 = CalculaDerivadaSpline(p);
-  avg = IntegralMonteCarlo(p, s2);
+  integral = IntegralMonteCarlo(p, s2);
+  avg = AvgMem(p, s2, integral);
   RscriptGenerate(p, avg, argv[2], s2);
   PrintExit(p->n, avg, argv[2]);
-  DeletePares(p);
+  CleanSys(p, s2);
   return(0);
 }
 /* Função que carrega o arquivo e preenche a estrutura com os valores informados */
@@ -104,7 +107,8 @@ void PrintExit(int n, double avg, char *saida) {
 }
 
   /* Funcao propria para limpar a estrutura */
-void DeletePares(Pares aux) {
+void CleanSys(Pares aux, float *s2) {
+  free(s2);
   free(aux->vet);
   free(aux);
   return;
@@ -159,7 +163,7 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
   xinc = p->xmin;
   while(xinc < (p->n-1)) {
       fprintf(arq, "\t%.2f,\n", AvaliaSpline(p, s2, xinc));
-      xinc += intervalo;
+      xinc = xinc + intervalo;
   }
   fprintf(arq, "\t%.2f\n", AvaliaSpline(p, s2, xinc));
   fprintf(arq, ");\n");
@@ -177,6 +181,13 @@ void RscriptGenerate(Pares p, double avg, char *saida, float *s2) {
   fclose(arq);
 }
 
+double AvgMem(Pares p, float* s2, double integral) {
+    double avg;
+    /* Este cálculo é dado pelo Teorema do Valor Médio para Integrais, porém gera resultado extremamente abaixo da escala dos gráficos... */
+    avg = (1 / (p->xmax - p->xmin)) * integral;
+    return(avg);
+}
+
   /* Funcao Derivada por Spline Cubica informada no enunciado */
 float* CalculaDerivadaSpline(Pares p) {
   int m;
@@ -188,8 +199,11 @@ float* CalculaDerivadaSpline(Pares p) {
   d = (float*)malloc(sizeof(float)*p->n);
   s2 = (float*)malloc(sizeof(float)*p->n);
   if(p->n < 3) {
+    /* */
     printf("ERRO: NAO E POSSIVEL DEFINIR SPLINE COM MENOS DE 3 PONTOS!\n");
-    DeletePares(p);
+    free(e);
+    free(d);
+    CleanSys(p, s2);
     exit(0);
   }
   /* Sistema Tridiagonal Simetrico */
@@ -228,8 +242,8 @@ float* CalculaDerivadaSpline(Pares p) {
 /* Funcao Avalia Spline Cubica ou f(x) informada no enunciado */
 float AvaliaSpline(Pares p, float *s2, float valor) {
   int indice;
-  if((valor < p->xmin ) || (valor > p->xmax)) {
-    printf("Valor Aleatorio (x): %.2f\n", valor);
+  if((valor < p->xmin ) || (valor > (p->xmax+1))) {
+    printf("Valor Aleatorio (x): %.2f\nValor máximo: %.2f\n", valor, p->xmax);
     printf("ERRO: VALOR FORA DO INTERVALO!\n");
   }
   /* Busca Binaria */
@@ -262,10 +276,11 @@ double IntegralMonteCarlo(Pares p, float *s2) {
   double AreaTotal, Area;
   int i;
   num_abaixo = 0.0;
-  for (i = 0; i < p->n; i++){ /* laço de 1 até o número menor ou igual a n */
+  p->ymin = 0;
+  for (i = 0; i <= p->n; i++){ /* laço de 1 até o número menor ou igual a n */
     x = Random(p->xmin,p->xmax); /* usando a função para gerar números pseudoaleatórios */
     y = Random(p->ymin,p->ymax);
-    if (y <= AvaliaSpline(p, s2, x)){
+    if (y < AvaliaSpline(p, s2, x)){
       num_abaixo++; /* contador */
     }
   }
