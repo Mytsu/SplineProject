@@ -1,7 +1,7 @@
 /*
 #######################################################################
 # Calculo Numerico - Trabalho Spline
-# --v0.1
+# --v1.0
 #
 # Jonathan Arantes Pinto - 0021625
 # Rubia Marques Oliveira - 0022430
